@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Register</h1>
+{% if error %}
+  {% include "partials/error.html" %}
+{% endif %}
+<form method="post" action="/auth/register">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <label>Email <input type="email" name="email" required /></label><br />
+  <label>Full name <input type="text" name="full_name" /></label><br />
+  <label>Password <input type="password" name="password" required /></label><br />
+  <label>Confirm password <input type="password" name="confirm_password" required /></label><br />
+  <button type="submit">Create account</button>
+</form>
+<p><a href="/auth/login">Already have an account? Log in</a></p>
+{% endblock %}

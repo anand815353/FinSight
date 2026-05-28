@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title or "FinSight" }}</title>
+  </head>
+  <body>
+    <nav>
+      <a href="/health/live">Health</a> |
+      <a href="/auth/login">Login</a> |
+      <a href="/auth/register">Register</a> |
+      <a href="/dashboard">Dashboard</a>
+    </nav>
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

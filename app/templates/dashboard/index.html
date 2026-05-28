@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+<p>Welcome, {{ current_user.full_name or current_user.email }}.</p>
+<form method="post" action="/auth/logout">
+  <input type="hidden" name="csrf_token" value="{{ request.cookies.get(request.app.state.settings.session.csrf_cookie_name, '') }}" />
+  <button type="submit">Logout</button>
+</form>
+{% endblock %}

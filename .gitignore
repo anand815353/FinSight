@@ -216,3 +216,28 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# FinSight — Python package/build artifacts (explicit; also covered above)
+*.egg-info/
+*.egg
+build/
+dist/
+
+# FinSight — IDE
+.idea/
+.vscode/
+
+# FinSight — local secrets (keep example)
+.env
+.env.*
+!.env.example
+
+# FinSight — future ingestion / storage (contents ignored; dirs tracked via .gitkeep)
+data/filings/
+storage/raw/
+storage/parsed/
+storage/tables/
+storage/page_maps/
+!data/.gitkeep
+!data/filings/.gitkeep
+!storage/.gitkeep
