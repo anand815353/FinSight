@@ -1,0 +1,3 @@
+# Non-authoritative dependency shim.
+# Source of truth: pyproject.toml
+# Optional snapshot artifact: ../docs/requirements-python312.txt
