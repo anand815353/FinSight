@@ -1,0 +1,26 @@
+# Default: normalize line endings on checkout/commit
+* text=auto
+
+# Source and config
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.sh text eol=lf
+
+# Binary / generated local artifacts (do not line-normalize)
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.zip binary
+*.gz binary
+*.sqlite binary
+*.db binary

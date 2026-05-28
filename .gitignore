@@ -233,11 +233,12 @@ dist/
 !.env.example
 
 # FinSight — future ingestion / storage (contents ignored; dirs tracked via .gitkeep)
-data/filings/
+# Ignore generated filings; keep directory placeholder trackable (do not use data/filings/ — blocks negation)
+data/filings/*
+!data/filings/.gitkeep
 storage/raw/
 storage/parsed/
 storage/tables/
 storage/page_maps/
 !data/.gitkeep
-!data/filings/.gitkeep
 !storage/.gitkeep

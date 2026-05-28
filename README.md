@@ -1,7 +1,18 @@
 # FinSight
 
-FinSight is a financial research copilot for Indian investors with an official-source,
-citation-first approach.
+FinSight is an official-source, citation-first financial research copilot for Indian
+listed companies (MVP document types listed below).
+
+## MVP scope (frozen)
+
+**In scope (official sources only):**
+
+- Annual reports
+- Financial results / quarterly results
+- Investor presentations
+
+**Out of scope for MVP:** concall/earnings-call transcripts, DRHP/RHP, arbitrary filings,
+user uploads, investment advice (buy/sell/hold), ratings/scores, and target prices.
 
 ## Local setup (Python 3.12.13, uv preferred)
 
