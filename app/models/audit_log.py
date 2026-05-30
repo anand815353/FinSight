@@ -14,6 +14,10 @@ class AuditEventType(StrEnum):
     LOGOUT = "logout"
     PROTECTED_ROUTE_DENIED = "protected_route_denied"
     ADMIN_ACCESS_DENIED = "admin_access_denied"
+    ADMIN_COMPANY_CREATED = "admin_company_created"
+    ADMIN_DOCUMENT_REGISTERED = "admin_document_registered"
+    ADMIN_DOCUMENT_UPLOADED = "admin_document_uploaded"
+    ADMIN_DOCUMENT_REGISTRATION_FAILED = "admin_document_registration_failed"
 
 
 class AuditLog(BaseModel):

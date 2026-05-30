@@ -9,8 +9,10 @@ from app.core.security import (
     _password_hasher,
     create_session_token,
     decode_session_token,
+    generate_csrf_token,
     hash_password,
     set_auth_cookie,
+    set_csrf_cookie,
     verify_password,
 )
 
@@ -66,3 +68,16 @@ def test_auth_cookie_flags(monkeypatch):
     cookie_header = response.headers.get("set-cookie", "")
     assert settings.session.cookie_name in cookie_header
     assert "HttpOnly" in cookie_header
+
+
+def test_csrf_cookie_flags(monkeypatch):
+    monkeypatch.setenv("APP__SECRET_KEY", "supersecret-supersecret-supersecret")
+    settings = Settings()
+    response = Response()
+    token = generate_csrf_token()
+    assert len(token) > 20
+    set_csrf_cookie(response, token, settings)
+    cookie_header = response.headers.get("set-cookie", "")
+    assert settings.session.csrf_cookie_name in cookie_header
+    assert token in cookie_header
+    assert "HttpOnly" not in cookie_header

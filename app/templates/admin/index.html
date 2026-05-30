@@ -1,0 +1,11 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Admin Dashboard</h1>
+<p>Signed in as {{ current_user.email }} (admin).</p>
+<ul>
+  <li><a href="/admin/companies">Manage companies</a></li>
+  <li><a href="/admin/companies/new">Create company</a></li>
+  <li><a href="/admin/documents">View registered documents</a></li>
+  <li><a href="/admin/documents/new">Register official document</a></li>
+</ul>
+{% endblock %}

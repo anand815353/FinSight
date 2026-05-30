@@ -122,6 +122,9 @@ class UsageSettings(BaseModel):
 
 class StorageSettings(BaseModel):
     document_storage_path: str = "data/filings"
+    admin_pending_upload_path: str = "storage/admin_uploads/pending"
+    max_upload_bytes: int = 52_428_800
+    allowed_upload_mime_types: list[str] = Field(default_factory=lambda: ["application/pdf"])
 
 
 class Settings(BaseSettings):
@@ -242,6 +245,8 @@ class Settings(BaseSettings):
             "usage.beta_daily_question_limit": self.usage.beta_daily_question_limit,
             "usage.monthly_budget_inr": self.usage.monthly_budget_inr,
             "storage.document_storage_path": self.storage.document_storage_path,
+            "storage.admin_pending_upload_path": self.storage.admin_pending_upload_path,
+            "storage.max_upload_bytes": self.storage.max_upload_bytes,
             "app.secret_key": "<redacted>",
         }
 

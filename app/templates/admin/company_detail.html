@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>{{ company.display_name }}</h1>
+<p><strong>Company ID:</strong> {{ company.company_id }}</p>
+<p><strong>NSE Symbol:</strong> {{ company.nse_symbol }}</p>
+<p><strong>Status:</strong> {{ company.status }}</p>
+<p>
+  <a href="/admin/companies/{{ company.company_id }}/documents/new">Register official document</a>
+</p>
+<h2>Documents</h2>
+{% if documents %}
+<table>
+  <thead>
+    <tr>
+      <th>Title</th>
+      <th>Type</th>
+      <th>Period</th>
+      <th>Approval</th>
+      <th>Searchable</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for doc in documents %}
+    <tr>
+      <td>{{ doc.title }}</td>
+      <td>{{ doc.document_type }}</td>
+      <td>{{ doc.period or doc.fiscal_year or '—' }}</td>
+      <td>{{ doc.approval_status }}</td>
+      <td>{{ doc.searchable }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+{% include "partials/empty_state.html" %}
+{% endif %}
+<p><a href="/admin/companies">Back to companies</a></p>
+{% endblock %}

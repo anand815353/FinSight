@@ -1,0 +1,75 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Register Official Document</h1>
+<p>
+  <strong>Important:</strong> Source URL is optional but recommended for traceability only —
+  FinSight does not download or crawl from source links. Uploading a file does not make the
+  document searchable. The document must pass admin approval and later processing before
+  user-facing research.
+</p>
+{% include "partials/form_errors.html" %}
+<form method="post" action="/admin/documents" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p>
+    <label for="company_id">Company</label><br />
+    <select id="company_id" name="company_id" required>
+      <option value="">Select company</option>
+      {% for company in companies %}
+      <option value="{{ company.company_id }}" {% if company.company_id == selected_company_id %}selected{% endif %}>
+        {{ company.display_name }} ({{ company.nse_symbol }})
+      </option>
+      {% endfor %}
+    </select>
+  </p>
+  <p>
+    <label for="document_type">Document Type</label><br />
+    <select id="document_type" name="document_type" required>
+      {% for value, label in document_types %}
+      <option value="{{ value }}" {% if form.get('document_type') == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </p>
+  <p>
+    <label for="title">Document Title</label><br />
+    <input id="title" name="title" type="text" required value="{{ form.get('title', '') }}" />
+  </p>
+  <p>
+    <label for="fiscal_year">Financial Year</label><br />
+    <input id="fiscal_year" name="fiscal_year" type="number" value="{{ form.get('fiscal_year', '') }}" />
+  </p>
+  <p>
+    <label for="quarter">Quarter (if applicable)</label><br />
+    <input id="quarter" name="quarter" type="text" placeholder="Q1, Q2, Q3, Q4" value="{{ form.get('quarter', '') }}" />
+  </p>
+  <p>
+    <label for="period">Period Label</label><br />
+    <input id="period" name="period" type="text" placeholder="FY2025" value="{{ form.get('period', '') }}" />
+  </p>
+  <p>
+    <label for="filing_date">Filing Date</label><br />
+    <input id="filing_date" name="filing_date" type="date" value="{{ form.get('filing_date', '') }}" />
+  </p>
+  <p>
+    <label for="source_type">Source Type</label><br />
+    <select id="source_type" name="source_type">
+      <option value="">Select source type</option>
+      {% for value, label in source_types %}
+      <option value="{{ value }}" {% if form.get('source_type') == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </p>
+  <p>
+    <label for="source_url">Source URL (optional, traceability only)</label><br />
+    <input id="source_url" name="source_url" type="url" value="{{ form.get('source_url', '') }}" />
+  </p>
+  <p>
+    <label for="notes">Notes (optional)</label><br />
+    <textarea id="notes" name="notes" rows="3">{{ form.get('notes', '') }}</textarea>
+  </p>
+  <p>
+    <label for="file">Official PDF File (required)</label><br />
+    <input id="file" name="file" type="file" accept=".pdf,application/pdf" required />
+  </p>
+  <button type="submit">Register document</button>
+</form>
+{% endblock %}
