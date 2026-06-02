@@ -1,4 +1,5 @@
 from datetime import date
+import hashlib
 
 import asyncio
 from pathlib import Path
@@ -11,6 +12,7 @@ from app.models.document import ApprovalStatus, DocumentCreate
 from app.services.document_service import (
     DocumentRegistrationError,
     DocumentService,
+    calculate_sha256_bytes,
     safe_storage_company_id,
 )
 from tests.test_admin_helpers import (
@@ -116,6 +118,74 @@ def test_admin_can_register_valid_mvp_document(admin_client):
     event_types = {event["event_type"] for event in audit_repo.events}
     assert AuditEventType.ADMIN_DOCUMENT_REGISTERED in event_types
     assert AuditEventType.ADMIN_DOCUMENT_UPLOADED in event_types
+    assert doc.file_hash == calculate_sha256_bytes(MINIMAL_PDF)
+    assert len(doc.file_hash) == 64
+
+
+def _register_document_post(client, app, *, title: str = "Annual Report FY2025"):
+    client.get("/admin/documents/new")
+    csrf = get_csrf(client, app)
+    return client.post(
+        "/admin/documents",
+        data={
+            "company_id": "reliance_industries",
+            "document_type": "annual_report",
+            "title": title,
+            "fiscal_year": "2025",
+            "period": "FY2025",
+            "csrf_token": csrf,
+        },
+        files={"file": ("report.pdf", MINIMAL_PDF, "application/pdf")},
+        follow_redirects=False,
+    )
+
+
+def test_register_document_stores_sha256_hash(admin_client):
+    client, app, *_rest = admin_client
+    response = _register_document_post(client, app)
+    assert response.status_code == 303
+    docs = asyncio.run(app.state.document_service.list_all_documents())
+    assert len(docs) == 1
+    expected = hashlib.sha256(MINIMAL_PDF).hexdigest()
+    assert docs[0].file_hash == expected
+
+
+def test_duplicate_upload_rejected(admin_client):
+    client, app, audit_repo, _upload_root = admin_client
+    first = _register_document_post(client, app, title="First upload")
+    assert first.status_code == 303
+    second = _register_document_post(client, app, title="Duplicate upload attempt")
+    assert second.status_code == 409
+    assert "already been registered" in second.text
+
+    failed = [
+        e
+        for e in audit_repo.events
+        if e["event_type"] == AuditEventType.ADMIN_DOCUMENT_REGISTRATION_FAILED
+    ]
+    assert failed
+    assert any(e["details"].get("reason") == "duplicate_file_hash" for e in failed)
+
+
+def test_duplicate_does_not_create_second_document(admin_client):
+    client, app, *_rest = admin_client
+    assert _register_document_post(client, app).status_code == 303
+    assert _register_document_post(client, app, title="Second").status_code == 409
+    docs = asyncio.run(app.state.document_service.list_all_documents())
+    assert len(docs) == 1
+
+
+def test_duplicate_upload_does_not_leave_extra_pending_dirs(admin_client):
+    client, app, _audit_repo, upload_root = admin_client
+    assert _register_document_post(client, app).status_code == 303
+    assert _register_document_post(client, app, title="Duplicate").status_code == 409
+    company_dirs = list((Path(upload_root) / "reliance_industries").iterdir())
+    assert len(company_dirs) == 1
+
+
+def test_different_pdf_bytes_produce_different_hashes():
+    other_pdf = MINIMAL_PDF + b"\n% extra"
+    assert calculate_sha256_bytes(MINIMAL_PDF) != calculate_sha256_bytes(other_pdf)
 
 
 def test_register_document_with_valid_filing_date(admin_client):

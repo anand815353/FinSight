@@ -1,0 +1,177 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Document Review</h1>
+<p><a href="/admin/documents/pending">Back to pending queue</a> | <a href="/admin/documents">All documents</a></p>
+{% include "partials/form_errors.html" %}
+
+<dl>
+  <dt>Company</dt>
+  <dd>{{ company_display_name }} ({{ document.company_id }})</dd>
+  <dt>Title</dt>
+  <dd>{{ document.title }}</dd>
+  <dt>Document type</dt>
+  <dd>{{ document.document_type }}</dd>
+  <dt>Period / fiscal year</dt>
+  <dd>{{ document.period or '—' }} / {{ document.fiscal_year or '—' }}</dd>
+  <dt>Filing date</dt>
+  <dd>{{ document.filing_date or '—' }}</dd>
+  <dt>Source type</dt>
+  <dd>{{ document.source_type or '—' }}</dd>
+  <dt>Source URL (reference only)</dt>
+  <dd>{% if document.source_url %}{{ document.source_url }}{% else %}—{% endif %}</dd>
+  <dt>File</dt>
+  <dd>
+    {% if document.file_name %}
+    {{ document.file_name }} ({{ document.file_size_bytes }} bytes, {{ document.mime_type }})
+    {% else %}
+    No file metadata
+    {% endif %}
+  </dd>
+  <dt>Approval status</dt>
+  <dd>{{ document.approval_status }}</dd>
+  <dt>Lifecycle</dt>
+  <dd>{{ document.lifecycle_status }}</dd>
+  <dt>Readiness status</dt>
+  <dd>{{ document.readiness_status }}</dd>
+  <dt>Searchable</dt>
+  <dd>{{ document.searchable }}</dd>
+  {% if document.searchable_at %}
+  <dt>Searchable at</dt>
+  <dd>{{ document.searchable_at }} by {{ document.searchable_by or '—' }}</dd>
+  {% endif %}
+  <dt>Parse status</dt>
+  <dd>{{ document.parse_status }}</dd>
+  <dt>Page count</dt>
+  <dd>{{ document.page_count if document.page_count is not none else '—' }}</dd>
+  <dt>Parsed at</dt>
+  <dd>{{ document.parsed_at or '—' }}</dd>
+  <dt>Chunk status</dt>
+  <dd>{{ document.chunk_status }}</dd>
+  <dt>Chunk count</dt>
+  <dd>{{ document.chunk_count if document.chunk_count is not none else '—' }}</dd>
+  <dt>Chunked at</dt>
+  <dd>{{ document.chunked_at or '—' }}</dd>
+  <dt>Index status</dt>
+  <dd>{{ document.index_status }}</dd>
+  <dt>Indexed chunk count</dt>
+  <dd>{{ document.indexed_chunk_count if document.indexed_chunk_count is not none else '—' }}</dd>
+  <dt>Indexed at</dt>
+  <dd>{{ document.indexed_at or '—' }}</dd>
+  {% if qdrant_collection_name %}
+  <dt>Qdrant collection</dt>
+  <dd>{{ qdrant_collection_name }}</dd>
+  {% endif %}
+  {% if document.approved_by %}
+  <dt>Approved by</dt>
+  <dd>{{ document.approved_by }} at {{ document.approved_at }}</dd>
+  {% endif %}
+  {% if document.rejected_by %}
+  <dt>Rejected by</dt>
+  <dd>{{ document.rejected_by }} at {{ document.rejected_at }}</dd>
+  <dt>Rejection reason</dt>
+  <dd>{{ document.rejection_reason }}</dd>
+  {% endif %}
+  {% if document.review_notes %}
+  <dt>Review notes</dt>
+  <dd>{{ document.review_notes }}</dd>
+  {% endif %}
+  {% if document.notes %}
+  <dt>Registration notes</dt>
+  <dd>{{ document.notes }}</dd>
+  {% endif %}
+</dl>
+
+{% if validation_messages %}
+<h2>Readiness validation</h2>
+<ul>
+  {% for message in validation_messages %}
+  <li>{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if latest_validation %}
+<h2>Latest validation result</h2>
+<p>Status: {{ latest_validation.status }} at {{ latest_validation.validated_at }}</p>
+{% if latest_validation.fatal_errors %}
+<p><strong>Fatal errors:</strong></p>
+<ul>
+  {% for err in latest_validation.fatal_errors %}
+  <li>{{ err }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if latest_validation.warnings %}
+<p><strong>Warnings:</strong></p>
+<ul>
+  {% for warn in latest_validation.warnings %}
+  <li>{{ warn }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endif %}
+
+{% if can_validate_readiness %}
+<h2>Validate citation readiness</h2>
+<p>
+  Run deterministic checks on parse, chunk, index, and citation metadata. On success, the document becomes
+  searchable for future retrieval. This does not enable Q&amp;A, chat, or RAG.
+</p>
+<form method="post" action="/admin/documents/{{ document.document_id }}/validate-readiness">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p><button type="submit">Validate readiness</button></p>
+</form>
+{% endif %}
+
+<p>
+  <strong>Approval means approved for later processing only.</strong>
+  This action does not parse, chunk, index, or make the document searchable for users.
+</p>
+
+{% if approval_pending %}
+<h2>Approve</h2>
+<form method="post" action="/admin/documents/{{ document.document_id }}/approve">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p>
+    <label for="approve_review_notes">Review notes (optional)</label><br />
+    <textarea id="approve_review_notes" name="review_notes" rows="3" cols="60"></textarea>
+  </p>
+  <p><button type="submit">Approve for later processing</button></p>
+</form>
+
+<h2>Reject</h2>
+<form method="post" action="/admin/documents/{{ document.document_id }}/reject">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p>
+    <label for="rejection_reason">Rejection reason (required)</label><br />
+    <textarea id="rejection_reason" name="rejection_reason" rows="3" cols="60" required></textarea>
+  </p>
+  <p>
+    <label for="reject_review_notes">Review notes (optional)</label><br />
+    <textarea id="reject_review_notes" name="review_notes" rows="2" cols="60"></textarea>
+  </p>
+  <p><button type="submit">Reject document</button></p>
+</form>
+{% elif approval_rejected %}
+<h2>Reopen for review</h2>
+<form method="post" action="/admin/documents/{{ document.document_id }}/mark-pending">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p>
+    <label for="reopen_review_notes">Review notes (optional)</label><br />
+    <textarea id="reopen_review_notes" name="review_notes" rows="2" cols="60"></textarea>
+  </p>
+  <p><button type="submit">Mark pending again</button></p>
+</form>
+{% elif approval_approved and can_request_processing %}
+<h2>Request processing</h2>
+<p>
+  Queue this document for later parsing and indexing. This does not parse the PDF or make the document searchable yet.
+</p>
+<form method="post" action="/admin/documents/{{ document.document_id }}/process">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p><button type="submit">Request processing</button></p>
+</form>
+{% else %}
+<p>This document is not awaiting approval actions.</p>
+{% endif %}
+{% endblock %}

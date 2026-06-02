@@ -240,6 +240,7 @@ storage/raw/
 storage/parsed/
 storage/tables/
 storage/page_maps/
+storage/chunks/
 storage/admin_uploads/*
 !storage/admin_uploads/.gitkeep
 !data/.gitkeep

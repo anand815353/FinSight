@@ -46,6 +46,12 @@ class ProcessingStageStatus(StrEnum):
     FAILED = "failed"
 
 
+class DocumentReadinessStatus(StrEnum):
+    NOT_VALIDATED = "not_validated"
+    PASSED = "passed"
+    FAILED = "failed"
+
+
 class DocumentLifecycleStatus(StrEnum):
     DISCOVERED = "discovered"
     REGISTERED = "registered"
@@ -139,14 +145,31 @@ class Document(BaseModel):
     is_latest: bool = True
     document_group_id: str | None = None
     raw_storage_path: str | None = None
+    parsed_pages_path: str | None = None
+    page_map_path: str | None = None
+    parsed_at: datetime | None = None
     parse_status: ProcessingStageStatus = ProcessingStageStatus.NOT_STARTED
     chunk_status: ProcessingStageStatus = ProcessingStageStatus.NOT_STARTED
+    chunk_count: int | None = None
+    chunk_artifact_path: str | None = None
+    chunked_at: datetime | None = None
     index_status: ProcessingStageStatus = ProcessingStageStatus.NOT_STARTED
+    indexed_chunk_count: int | None = None
+    indexed_at: datetime | None = None
     approval_status: ApprovalStatus = ApprovalStatus.PENDING
     approved_by: str | None = None
     approved_at: datetime | None = None
+    rejected_by: str | None = None
+    rejected_at: datetime | None = None
+    rejection_reason: str | None = None
+    review_notes: str | None = None
     lifecycle_status: DocumentLifecycleStatus = DocumentLifecycleStatus.REGISTERED
     searchable: bool = False
+    readiness_status: DocumentReadinessStatus = DocumentReadinessStatus.NOT_VALIDATED
+    readiness_validated_at: datetime | None = None
+    readiness_validation_id: str | None = None
+    searchable_at: datetime | None = None
+    searchable_by: str | None = None
     notes: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

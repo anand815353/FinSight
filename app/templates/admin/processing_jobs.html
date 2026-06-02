@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Processing Jobs</h1>
+<p>
+  <a href="/admin/documents/approved-for-processing">Eligible documents</a> |
+  <a href="/admin/documents">All documents</a>
+</p>
+{% if jobs %}
+<table>
+  <thead>
+    <tr>
+      <th>Job ID</th>
+      <th>Document</th>
+      <th>Company</th>
+      <th>Status</th>
+      <th>Stage</th>
+      <th>Created</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for job in jobs %}
+    <tr>
+      <td>{{ job.job_id[:8] }}…</td>
+      <td>{{ job.document_id[:8] }}…</td>
+      <td>{{ job.company_id }}</td>
+      <td>{{ job.status }}</td>
+      <td>{{ job.stage }}</td>
+      <td>{{ job.created_at }}</td>
+      <td><a href="/admin/processing/jobs/{{ job.job_id }}">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No processing jobs yet.</p>
+{% endif %}
+{% endblock %}

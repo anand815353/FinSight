@@ -109,9 +109,49 @@ class LLMSettings(BaseModel):
         return value
 
 
+# Optional Gemini embedding backup collection (separate from active HF collection).
+GEMINI_BACKUP_COLLECTION_NAME = "finsight_chunks_gemini_embedding_001"
+
+STALE_ACTIVE_COLLECTION_NAMES = frozenset(
+    {
+        "finsight_chunks_gemini_v1",
+    }
+)
+
+
 class EmbeddingSettings(BaseModel):
-    collection_name: str = "finsight_chunks_gemini_v1"
-    model_version: str = "v1"
+    provider: Literal["huggingface", "fake"] = "huggingface"
+    hf_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    collection_name: str = "finsight_chunks_hf_minilm_l6_v2"
+    vector_size: int = 384
+    batch_size: int = 32
+    normalize_embeddings: bool = True
+
+    @field_validator("collection_name")
+    @classmethod
+    def reject_stale_active_collections(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized in STALE_ACTIVE_COLLECTION_NAMES:
+            raise ValueError(
+                f"EMBEDDING__COLLECTION_NAME '{normalized}' is deprecated. "
+                f"Use the active HF collection finsight_chunks_hf_minilm_l6_v2."
+            )
+        if normalized.startswith("books_"):
+            raise ValueError(
+                "EMBEDDING__COLLECTION_NAME must use FinSight-specific names, not books_* prefixes."
+            )
+        if normalized == GEMINI_BACKUP_COLLECTION_NAME:
+            raise ValueError(
+                "GEMINI_BACKUP_COLLECTION_NAME is for optional backup only; "
+                "set EMBEDDING__COLLECTION_NAME to finsight_chunks_hf_minilm_l6_v2 for MVP."
+            )
+        return normalized
+
+
+class RetrievalSettings(BaseModel):
+    default_top_k: int = 8
+    default_score_threshold: float | None = None
+    max_top_k: int = 50
 
 
 class UsageSettings(BaseModel):
@@ -123,6 +163,9 @@ class UsageSettings(BaseModel):
 class StorageSettings(BaseModel):
     document_storage_path: str = "data/filings"
     admin_pending_upload_path: str = "storage/admin_uploads/pending"
+    parsed_storage_path: str = "storage/parsed"
+    page_map_storage_path: str = "storage/page_maps"
+    chunk_storage_path: str = "storage/chunks"
     max_upload_bytes: int = 52_428_800
     allowed_upload_mime_types: list[str] = Field(default_factory=lambda: ["application/pdf"])
 
@@ -147,6 +190,7 @@ class Settings(BaseSettings):
     session: SessionSettings = Field(default_factory=SessionSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     usage: UsageSettings = Field(default_factory=UsageSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
 
@@ -239,8 +283,10 @@ class Settings(BaseSettings):
             "llm.provider": self.llm.provider,
             "llm.model_name": self.llm.model_name,
             "llm.api_key": "<redacted>" if self.llm.api_key else None,
+            "embedding.provider": self.embedding.provider,
             "embedding.collection_name": self.embedding.collection_name,
-            "embedding.model_version": self.embedding.model_version,
+            "embedding.hf_model_name": self.embedding.hf_model_name,
+            "embedding.vector_size": self.embedding.vector_size,
             "usage.free_daily_question_limit": self.usage.free_daily_question_limit,
             "usage.beta_daily_question_limit": self.usage.beta_daily_question_limit,
             "usage.monthly_budget_inr": self.usage.monthly_budget_inr,

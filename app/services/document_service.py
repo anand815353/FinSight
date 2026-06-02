@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -27,9 +29,21 @@ PDF_MAGIC = b"%PDF"
 ALLOWED_EXTENSIONS = {".pdf"}
 _SAFE_STORAGE_COMPANY_ID = re.compile(r"^[a-z0-9][a-z0-9_]*$")
 _SAFE_STORAGE_DOCUMENT_ID = re.compile(r"^[0-9a-f-]{36}$")
+_DUPLICATE_FILE_MESSAGE = "This file appears to have already been registered."
+
+
+def calculate_sha256_bytes(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
 
 
 class DocumentRegistrationError(Exception):
+    def __init__(self, message: str, *, status_code: int = 400):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+class DocumentApprovalError(Exception):
     def __init__(self, message: str, *, status_code: int = 400):
         super().__init__(message)
         self.message = message
@@ -95,6 +109,230 @@ class DocumentService:
 
     async def list_all_documents(self, *, limit: int = 100) -> list[Document]:
         return await self._document_repo.list_all(limit=limit)
+
+    async def list_pending_approval_documents(self, *, limit: int = 200) -> list[Document]:
+        return await self._document_repo.list_by_approval_status(
+            ApprovalStatus.PENDING, limit=limit
+        )
+
+    async def _log_approval_failed(
+        self,
+        *,
+        user_id: str | None,
+        reason: str,
+        document_id: str | None,
+        company_id: str | None = None,
+    ) -> None:
+        if self._audit_repo is None:
+            return
+        await self._audit_repo.log_event(
+            event_type=AuditEventType.ADMIN_DOCUMENT_APPROVAL_FAILED,
+            user_id=user_id,
+            request_id=request_id_ctx_var.get(),
+            details={
+                "reason": reason,
+                "document_id": document_id,
+                "company_id": company_id,
+            },
+        )
+
+    def _validate_document_for_approval(self, document: Document) -> None:
+        try:
+            validate_mvp_document_type(str(document.document_type))
+        except ValueError as exc:
+            raise DocumentApprovalError(str(exc), status_code=422) from exc
+
+        if document.raw_storage_path:
+            if not document.file_name or not document.mime_type or document.file_size_bytes is None:
+                raise DocumentApprovalError(
+                    "Uploaded document is missing required file metadata.",
+                    status_code=400,
+                )
+            file_path = Path(document.raw_storage_path) / document.file_name
+            if self._settings is not None and not file_path.is_file():
+                raise DocumentApprovalError(
+                    "Uploaded document file is not available on disk.",
+                    status_code=400,
+                )
+
+    async def _get_document_for_approval_action(self, document_id: str) -> Document:
+        document = await self._document_repo.get_by_id(document_id)
+        if document is None:
+            raise DocumentApprovalError("Document not found.", status_code=404)
+        self._validate_document_for_approval(document)
+        return document
+
+    async def approve_document(
+        self,
+        document_id: str,
+        *,
+        admin_user_id: str,
+        review_notes: str | None = None,
+    ) -> Document:
+        document = await self._get_document_for_approval_action(document_id)
+        status = ApprovalStatus(document.approval_status)
+
+        if status == ApprovalStatus.APPROVED:
+            raise DocumentApprovalError("Document is already approved.", status_code=409)
+        if status == ApprovalStatus.REJECTED:
+            await self._log_approval_failed(
+                user_id=admin_user_id,
+                reason="Cannot approve a rejected document. Mark it pending first.",
+                document_id=document_id,
+                company_id=document.company_id,
+            )
+            raise DocumentApprovalError(
+                "Cannot approve a rejected document. Mark it pending first.",
+                status_code=409,
+            )
+        if status != ApprovalStatus.PENDING:
+            await self._log_approval_failed(
+                user_id=admin_user_id,
+                reason=f"Document is not pending approval (status={status}).",
+                document_id=document_id,
+                company_id=document.company_id,
+            )
+            raise DocumentApprovalError(
+                "Only pending documents can be approved.",
+                status_code=409,
+            )
+
+        now = datetime.now(UTC)
+        notes = review_notes.strip() if review_notes and review_notes.strip() else None
+        updated = await self._document_repo.update_approval_review(
+            document_id,
+            approval_status=ApprovalStatus.APPROVED,
+            lifecycle_status=DocumentLifecycleStatus.APPROVED,
+            searchable=False,
+            approved_by=admin_user_id,
+            approved_at=now,
+            review_notes=notes,
+            clear_rejected=True,
+        )
+        if updated is None:
+            raise DocumentApprovalError("Document not found.", status_code=404)
+
+        if self._audit_repo is not None:
+            await self._audit_repo.log_event(
+                event_type=AuditEventType.ADMIN_DOCUMENT_APPROVED,
+                user_id=admin_user_id,
+                request_id=request_id_ctx_var.get(),
+                details={
+                    "document_id": updated.document_id,
+                    "company_id": updated.company_id,
+                    "document_type": updated.document_type,
+                },
+            )
+        return updated
+
+    async def reject_document(
+        self,
+        document_id: str,
+        *,
+        admin_user_id: str,
+        rejection_reason: str,
+        review_notes: str | None = None,
+    ) -> Document:
+        reason = rejection_reason.strip() if rejection_reason else ""
+        if not reason:
+            raise DocumentApprovalError("Rejection reason is required.", status_code=400)
+
+        document = await self._get_document_for_approval_action(document_id)
+        status = ApprovalStatus(document.approval_status)
+
+        if status == ApprovalStatus.REJECTED:
+            raise DocumentApprovalError("Document is already rejected.", status_code=409)
+        if status == ApprovalStatus.APPROVED:
+            await self._log_approval_failed(
+                user_id=admin_user_id,
+                reason="Cannot reject an approved document.",
+                document_id=document_id,
+                company_id=document.company_id,
+            )
+            raise DocumentApprovalError("Cannot reject an approved document.", status_code=409)
+        if status != ApprovalStatus.PENDING:
+            await self._log_approval_failed(
+                user_id=admin_user_id,
+                reason=f"Document is not pending approval (status={status}).",
+                document_id=document_id,
+                company_id=document.company_id,
+            )
+            raise DocumentApprovalError(
+                "Only pending documents can be rejected.",
+                status_code=409,
+            )
+
+        now = datetime.now(UTC)
+        notes = review_notes.strip() if review_notes and review_notes.strip() else None
+        updated = await self._document_repo.update_approval_review(
+            document_id,
+            approval_status=ApprovalStatus.REJECTED,
+            lifecycle_status=DocumentLifecycleStatus.REJECTED,
+            searchable=False,
+            rejected_by=admin_user_id,
+            rejected_at=now,
+            rejection_reason=reason,
+            review_notes=notes,
+            clear_approved=True,
+        )
+        if updated is None:
+            raise DocumentApprovalError("Document not found.", status_code=404)
+
+        if self._audit_repo is not None:
+            await self._audit_repo.log_event(
+                event_type=AuditEventType.ADMIN_DOCUMENT_REJECTED,
+                user_id=admin_user_id,
+                request_id=request_id_ctx_var.get(),
+                details={
+                    "document_id": updated.document_id,
+                    "company_id": updated.company_id,
+                    "document_type": updated.document_type,
+                },
+            )
+        return updated
+
+    async def mark_document_pending(
+        self,
+        document_id: str,
+        *,
+        admin_user_id: str,
+        review_notes: str | None = None,
+    ) -> Document:
+        document = await self._document_repo.get_by_id(document_id)
+        if document is None:
+            raise DocumentApprovalError("Document not found.", status_code=404)
+
+        status = ApprovalStatus(document.approval_status)
+        if status != ApprovalStatus.REJECTED:
+            raise DocumentApprovalError(
+                "Only rejected documents can be marked pending.",
+                status_code=409,
+            )
+
+        notes = review_notes.strip() if review_notes and review_notes.strip() else None
+        updated = await self._document_repo.update_approval_review(
+            document_id,
+            approval_status=ApprovalStatus.PENDING,
+            lifecycle_status=DocumentLifecycleStatus.APPROVAL_PENDING,
+            searchable=False,
+            review_notes=notes,
+            clear_approved=True,
+            clear_rejected=True,
+        )
+        if updated is None:
+            raise DocumentApprovalError("Document not found.", status_code=404)
+
+        if self._audit_repo is not None:
+            await self._audit_repo.log_event(
+                event_type=AuditEventType.ADMIN_DOCUMENT_MARKED_PENDING,
+                user_id=admin_user_id,
+                request_id=request_id_ctx_var.get(),
+                details={
+                    "document_id": updated.document_id,
+                    "company_id": updated.company_id,
+                },
+            )
+        return updated
 
     async def apply_searchable_update(
         self,
@@ -220,6 +458,16 @@ class DocumentService:
             )
             raise
 
+        file_hash = calculate_sha256_bytes(content)
+        existing = await self._document_repo.get_by_file_hash(file_hash)
+        if existing is not None:
+            await self._log_registration_failed(
+                user_id=admin_user_id,
+                reason="duplicate_file_hash",
+                company_id=payload.company_id,
+            )
+            raise DocumentRegistrationError(_DUPLICATE_FILE_MESSAGE, status_code=409)
+
         document_id = str(uuid4())
         base_path = Path(self._settings.storage.admin_pending_upload_path)
         try:
@@ -241,6 +489,7 @@ class DocumentService:
                 "source_type": source_type,
                 "searchable": False,
                 "file_name": "original.pdf",
+                "file_hash": file_hash,
                 "file_size_bytes": file_size,
                 "mime_type": mime_type,
                 "raw_storage_path": raw_storage_path,
@@ -254,10 +503,10 @@ class DocumentService:
                 file_path.unlink(missing_ok=True)
             await self._log_registration_failed(
                 user_id=admin_user_id,
-                reason=str(exc),
+                reason="duplicate_file_hash",
                 company_id=payload.company_id,
             )
-            raise DocumentRegistrationError(str(exc), status_code=409) from exc
+            raise DocumentRegistrationError(_DUPLICATE_FILE_MESSAGE, status_code=409) from exc
 
         if self._audit_repo is not None:
             await self._audit_repo.log_event(

@@ -21,7 +21,14 @@ class _FakeDocumentCollection:
         self.items[doc["_id"]] = doc
 
     async def find_one(self, query):
-        return self.items.get(query.get("_id"))
+        if "_id" in query:
+            return self.items.get(query.get("_id"))
+        if "file_hash" in query:
+            for item in self.items.values():
+                if item.get("file_hash") == query["file_hash"]:
+                    return item
+            return None
+        return None
 
     async def update_one(self, query, update):
         item = self.items.get(query["_id"])
@@ -39,13 +46,22 @@ class _FakeDocumentCollection:
         return _FakeDocumentCursor(self.items.values(), query)
 
 
+def _document_matches_query(item: dict, query: dict) -> bool:
+    for key, expected in query.items():
+        if key == "$or":
+            continue
+        value = item.get(key)
+        if isinstance(expected, dict) and "$in" in expected:
+            if value not in expected["$in"]:
+                return False
+        elif value != expected:
+            return False
+    return True
+
+
 class _FakeDocumentCursor:
     def __init__(self, values, query):
-        self._values = [
-            v
-            for v in values
-            if all(v.get(k) == qv for k, qv in query.items() if k != "$or")
-        ]
+        self._values = [v for v in values if _document_matches_query(v, query)]
         self._limit = None
         self._index = 0
 
