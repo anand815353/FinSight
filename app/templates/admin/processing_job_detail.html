@@ -1,0 +1,140 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Processing Job</h1>
+<p><a href="/admin/processing/jobs">Back to jobs</a></p>
+{% include "partials/form_errors.html" %}
+
+<dl>
+  <dt>Job ID</dt>
+  <dd>{{ job.job_id }}</dd>
+  <dt>Document ID</dt>
+  <dd><a href="/admin/documents/{{ job.document_id }}/review">{{ job.document_id }}</a></dd>
+  <dt>Company</dt>
+  <dd>{{ job.company_id }}</dd>
+  <dt>Requested by</dt>
+  <dd>{{ job.requested_by }}</dd>
+  <dt>Status</dt>
+  <dd>{{ job.status }}</dd>
+  <dt>Stage</dt>
+  <dd>{{ job.stage }}</dd>
+  <dt>Attempts</dt>
+  <dd>{{ job.attempts }} / {{ job.max_attempts }}</dd>
+  <dt>Created</dt>
+  <dd>{{ job.created_at }}</dd>
+  <dt>Updated</dt>
+  <dd>{{ job.updated_at }}</dd>
+  {% if job.started_at %}
+  <dt>Started</dt>
+  <dd>{{ job.started_at }}</dd>
+  {% endif %}
+  {% if job.completed_at %}
+  <dt>Completed</dt>
+  <dd>{{ job.completed_at }}</dd>
+  {% endif %}
+  {% if job.error_message %}
+  <dt>Error</dt>
+  <dd>{{ job.error_code or '—' }}: {{ job.error_message }}</dd>
+  {% endif %}
+</dl>
+
+{% if document %}
+<h2>Document processing status</h2>
+<dl>
+  <dt>Parse status</dt>
+  <dd>{{ document.parse_status }}</dd>
+  <dt>Chunk status</dt>
+  <dd>{{ document.chunk_status }}</dd>
+  <dt>Index status</dt>
+  <dd>{{ document.index_status }}</dd>
+  <dt>Lifecycle</dt>
+  <dd>{{ document.lifecycle_status }}</dd>
+  <dt>Page count</dt>
+  <dd>{{ document.page_count if document.page_count is not none else '—' }}</dd>
+  <dt>Chunk count</dt>
+  <dd>{{ document.chunk_count if document.chunk_count is not none else '—' }}</dd>
+  <dt>Indexed chunk count</dt>
+  <dd>{{ document.indexed_chunk_count if document.indexed_chunk_count is not none else '—' }}</dd>
+  <dt>Parsed at</dt>
+  <dd>{{ document.parsed_at or '—' }}</dd>
+  <dt>Chunked at</dt>
+  <dd>{{ document.chunked_at or '—' }}</dd>
+  <dt>Indexed at</dt>
+  <dd>{{ document.indexed_at or '—' }}</dd>
+  <dt>Searchable</dt>
+  <dd>{{ document.searchable }}</dd>
+  {% if qdrant_collection_name %}
+  <dt>Qdrant collection</dt>
+  <dd>{{ qdrant_collection_name }}</dd>
+  {% endif %}
+  {% if parsed_pages_basename %}
+  <dt>Parsed pages artifact</dt>
+  <dd>{{ parsed_pages_basename }}</dd>
+  {% endif %}
+  {% if page_map_basename %}
+  <dt>Page map artifact</dt>
+  <dd>{{ page_map_basename }}</dd>
+  {% endif %}
+  {% if chunk_artifact_basename %}
+  <dt>Chunk artifact</dt>
+  <dd>{{ chunk_artifact_basename }}</dd>
+  {% endif %}
+</dl>
+{% endif %}
+
+{% if can_run_parse %}
+<h2>Run PDF parse</h2>
+<p>
+  Extract page-level text and build page-map artifacts. This does not chunk, index, or make the document searchable.
+</p>
+<form method="post" action="/admin/processing/jobs/{{ job.job_id }}/parse">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p><button type="submit">Run parse</button></p>
+</form>
+{% elif can_run_chunk %}
+<h2>Run chunking</h2>
+<p>
+  Build citation-ready text chunks from parsed pages. This does not embed, index, or make the document searchable.
+</p>
+<form method="post" action="/admin/processing/jobs/{{ job.job_id }}/chunk">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p><button type="submit">Run chunking</button></p>
+</form>
+{% elif can_run_index %}
+<h2>Run vector indexing</h2>
+<p>
+  Embed chunks and upsert them into Qdrant with citation metadata. This does not enable search or Q&amp;A.
+</p>
+<form method="post" action="/admin/processing/jobs/{{ job.job_id }}/index">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p><button type="submit">Run indexing</button></p>
+</form>
+{% elif job.stage == 'index_completed' %}
+<p>
+  <strong>Indexing completed.</strong> Document remains non-searchable until a later readiness validation step.
+</p>
+{% elif job.stage == 'index_failed' %}
+<p>
+  <strong>Indexing failed.</strong> Review the error above and try again after fixing chunks.
+</p>
+{% elif job.stage == 'index_pending' %}
+<p>
+  <strong>Chunking completed.</strong> Run vector indexing when ready.
+</p>
+{% elif job.stage == 'chunk_failed' %}
+<p>
+  <strong>Chunking failed.</strong> Review the error above and try again after fixing parsed content.
+</p>
+{% elif job.stage == 'parse_completed' %}
+<p>
+  <strong>PDF parsing completed.</strong> Run chunking when ready.
+</p>
+{% elif job.stage == 'parse_failed' %}
+<p>
+  <strong>PDF parsing failed.</strong> Review the error above and re-queue processing if needed.
+</p>
+{% else %}
+<p>
+  Parsing is available when the job is queued for parse. Request processing from the document review page first.
+</p>
+{% endif %}
+{% endblock %}

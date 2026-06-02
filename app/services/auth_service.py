@@ -7,9 +7,11 @@ from app.core.security import (
     clear_auth_cookie,
     create_session_token,
     decode_session_token,
+    generate_csrf_token,
     hash_password,
     issue_csrf_token,
     set_auth_cookie,
+    set_csrf_cookie,
     verify_csrf_token,
     verify_password,
 )
@@ -115,6 +117,19 @@ class AuthService:
 
     def issue_form_csrf(self, response: Response) -> str:
         return issue_csrf_token(response, self._settings)
+
+    def prepare_form_csrf(self) -> str:
+        return generate_csrf_token()
+
+    def attach_form_csrf(self, response: Response, token: str) -> None:
+        set_csrf_cookie(response, token, self._settings)
+
+    def is_form_csrf_valid(self, request: Request, submitted_token: str | None) -> bool:
+        try:
+            verify_csrf_token(request, submitted_token, self._settings)
+        except HTTPException:
+            return False
+        return True
 
     def validate_form_csrf(self, request: Request, submitted_token: str | None) -> None:
         verify_csrf_token(request, submitted_token, self._settings)

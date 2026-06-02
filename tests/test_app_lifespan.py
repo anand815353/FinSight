@@ -14,6 +14,11 @@ def test_lifespan_initializes_dependency_managers(monkeypatch):
         assert hasattr(app.state, "mongo")
         assert hasattr(app.state, "redis")
         assert hasattr(app.state, "qdrant")
+        assert hasattr(app.state, "company_repo")
+        assert hasattr(app.state, "source_registry_repo")
+        assert hasattr(app.state, "document_repo")
+        assert hasattr(app.state, "company_service")
+        assert hasattr(app.state, "document_service")
 
 
 def test_lifespan_skips_startup_probe_in_test_env(monkeypatch):

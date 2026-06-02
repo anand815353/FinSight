@@ -1,7 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from app.core.config import Settings, get_settings
+from app.core.config import EmbeddingSettings, Settings, get_settings
+
+HF_COLLECTION = "finsight_chunks_hf_minilm_l6_v2"
 
 PRODUCTION_SECRET = "strong-production-secret-key-32chars-ok"
 
@@ -73,6 +75,25 @@ def test_settings_production_rejects_declared_host_with_compose_urls(monkeypatch
     monkeypatch.setenv("CELERY__RESULT_BACKEND", "redis://redis:6379/2")
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_embedding_settings_model_defaults_without_env():
+    embedding = EmbeddingSettings()
+    assert embedding.provider == "huggingface"
+    assert embedding.collection_name == HF_COLLECTION
+    assert embedding.hf_model_name == "sentence-transformers/all-MiniLM-L6-v2"
+    assert embedding.vector_size == 384
+
+
+def test_settings_loads_embedding_from_env(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP__SECRET_KEY", "supersecret")
+    monkeypatch.setenv("APP__ENV", "test")
+    monkeypatch.setenv("EMBEDDING__PROVIDER", "fake")
+    monkeypatch.setenv("EMBEDDING__COLLECTION_NAME", HF_COLLECTION)
+    settings = Settings()
+    assert settings.embedding.provider == "fake"
+    assert settings.embedding.collection_name == HF_COLLECTION
 
 
 def test_empty_optional_api_keys_normalize_to_none(monkeypatch):

@@ -1,0 +1,36 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Documents Pending Approval</h1>
+<p>
+  <a href="/admin/documents">All documents</a> |
+  <a href="/admin/documents/new">Register official document</a>
+</p>
+{% if documents %}
+<table>
+  <thead>
+    <tr>
+      <th>Company</th>
+      <th>Title</th>
+      <th>Type</th>
+      <th>Period</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for doc in documents %}
+    <tr>
+      <td>{{ doc.company_id }}</td>
+      <td>{{ doc.title }}</td>
+      <td>{{ doc.document_type }}</td>
+      <td>{{ doc.period or doc.fiscal_year or '—' }}</td>
+      <td><span>{{ doc.approval_status }}</span></td>
+      <td><a href="/admin/documents/{{ doc.document_id }}/review">Review</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+{% include "partials/empty_state.html" %}
+{% endif %}
+{% endblock %}

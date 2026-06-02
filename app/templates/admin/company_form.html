@@ -1,0 +1,60 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Create Company</h1>
+{% include "partials/form_errors.html" %}
+<form method="post" action="/admin/companies">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <p>
+    <label for="company_id">Company ID (optional — generated from NSE symbol if blank)</label><br />
+    <input id="company_id" name="company_id" type="text" value="{{ form.get('company_id', '') }}" />
+  </p>
+  <p>
+    <label for="name">Legal Name</label><br />
+    <input id="name" name="name" type="text" required value="{{ form.get('name', '') }}" />
+  </p>
+  <p>
+    <label for="display_name">Display Name</label><br />
+    <input id="display_name" name="display_name" type="text" required value="{{ form.get('display_name', '') }}" />
+  </p>
+  <p>
+    <label for="nse_symbol">NSE Symbol</label><br />
+    <input id="nse_symbol" name="nse_symbol" type="text" required value="{{ form.get('nse_symbol', '') }}" />
+  </p>
+  <p>
+    <label for="bse_scrip_code">BSE Scrip Code</label><br />
+    <input id="bse_scrip_code" name="bse_scrip_code" type="text" value="{{ form.get('bse_scrip_code', '') }}" />
+  </p>
+  <p>
+    <label for="isin">ISIN</label><br />
+    <input id="isin" name="isin" type="text" value="{{ form.get('isin', '') }}" />
+  </p>
+  <p>
+    <label for="sector">Sector</label><br />
+    <input id="sector" name="sector" type="text" value="{{ form.get('sector', '') }}" />
+  </p>
+  <p>
+    <label for="industry">Industry</label><br />
+    <input id="industry" name="industry" type="text" value="{{ form.get('industry', '') }}" />
+  </p>
+  <p>
+    <label for="market_index">Market Index</label><br />
+    <input id="market_index" name="market_index" type="text" value="{{ form.get('market_index', '') }}" />
+  </p>
+  <p>
+    <label for="priority_rank">Priority Rank</label><br />
+    <input id="priority_rank" name="priority_rank" type="number" value="{{ form.get('priority_rank', '') }}" />
+  </p>
+  <p>
+    <label><input name="is_seed_company" type="checkbox" value="true" {% if form.get('is_seed_company') %}checked{% endif %} /> Seed company</label>
+  </p>
+  <p>
+    <label for="company_status">Status</label><br />
+    <select id="company_status" name="company_status">
+      <option value="active" {% if form.get('status', 'active') == 'active' %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if form.get('status') == 'inactive' %}selected{% endif %}>Inactive</option>
+      <option value="archived" {% if form.get('status') == 'archived' %}selected{% endif %}>Archived</option>
+    </select>
+  </p>
+  <button type="submit">Create company</button>
+</form>
+{% endblock %}

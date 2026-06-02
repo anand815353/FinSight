@@ -53,6 +53,10 @@ class QdrantClientManager:
                 )
             return False
 
+    @property
+    def client(self):
+        return self._client
+
     async def disconnect(self) -> None:
         if self._client is not None:
             await self._client.close()

@@ -1,7 +1,17 @@
+import re
+
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.models.user import User, UserRole, UserStatus
+
+
+def _get_csrf_from_html(html: str) -> str:
+    match = re.search(r'name="csrf_token" value="([^"]*)"', html)
+    assert match is not None, "csrf_token hidden field not found in HTML"
+    token = match.group(1)
+    assert token, "csrf_token hidden field is empty in HTML"
+    return token
 
 
 class _FakeUserRepo:
@@ -207,3 +217,82 @@ def test_dashboard_redirects_anonymous_and_admin_rejects_non_admin(monkeypatch):
         )
         admin_response = client.get("/admin")
         assert admin_response.status_code == 403
+
+
+def test_register_page_hidden_csrf_matches_cookie(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP__SECRET_KEY", "supersecret-supersecret-supersecret")
+    monkeypatch.setenv("APP__ENV", "test")
+    from app.main import app
+
+    with TestClient(app) as client:
+        _inject_auth_service(app)
+        response = client.get("/auth/register")
+        assert response.status_code == 200
+        cookie = client.cookies.get(app.state.settings.session.csrf_cookie_name)
+        hidden = _get_csrf_from_html(response.text)
+        assert hidden == cookie
+
+
+def test_register_submit_with_html_csrf_token(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP__SECRET_KEY", "supersecret-supersecret-supersecret")
+    monkeypatch.setenv("APP__ENV", "test")
+    from app.main import app
+
+    with TestClient(app) as client:
+        _inject_auth_service(app)
+        page = client.get("/auth/register")
+        html_csrf = _get_csrf_from_html(page.text)
+        register_response = client.post(
+            "/auth/register",
+            data={
+                "email": "htmlcsrf@example.com",
+                "password": "StrongPass123",
+                "confirm_password": "StrongPass123",
+                "full_name": "HTML CSRF User",
+                "csrf_token": html_csrf,
+            },
+            follow_redirects=False,
+        )
+        assert register_response.status_code == 303
+        assert register_response.headers["location"] == "/auth/login"
+
+
+def test_register_csrf_failure_returns_html(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP__SECRET_KEY", "supersecret-supersecret-supersecret")
+    monkeypatch.setenv("APP__ENV", "test")
+    from app.main import app
+
+    with TestClient(app) as client:
+        _inject_auth_service(app)
+        client.get("/auth/register")
+        response = client.post(
+            "/auth/register",
+            data={
+                "email": "badcsrf@example.com",
+                "password": "StrongPass123",
+                "confirm_password": "StrongPass123",
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 403
+        assert "Session expired" in response.text
+        assert "text/html" in response.headers.get("content-type", "")
+        assert "detail" not in response.text
+
+
+def test_login_page_hidden_csrf_matches_cookie(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("APP__SECRET_KEY", "supersecret-supersecret-supersecret")
+    monkeypatch.setenv("APP__ENV", "test")
+    from app.main import app
+
+    with TestClient(app) as client:
+        _inject_auth_service(app)
+        response = client.get("/auth/login")
+        assert response.status_code == 200
+        cookie = client.cookies.get(app.state.settings.session.csrf_cookie_name)
+        hidden = _get_csrf_from_html(response.text)
+        assert hidden == cookie

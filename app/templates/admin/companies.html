@@ -1,0 +1,33 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Companies</h1>
+<p><a href="/admin/companies/new">Create company</a></p>
+<form>
+  <label for="company-search">Search</label>
+  <input
+    id="company-search"
+    name="q"
+    type="search"
+    value="{{ query }}"
+    placeholder="Name or symbol"
+    hx-get="/admin/companies/partial"
+    hx-trigger="keyup changed delay:300ms, search"
+    hx-target="#company-rows"
+    hx-include="[name='q']"
+  />
+</form>
+<table>
+  <thead>
+    <tr>
+      <th>Company ID</th>
+      <th>Display Name</th>
+      <th>NSE Symbol</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="company-rows">
+    {% include "partials/company_rows.html" %}
+  </tbody>
+</table>
+{% endblock %}

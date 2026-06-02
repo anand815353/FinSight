@@ -1,0 +1,15 @@
+{% if companies %}
+  {% for company in companies %}
+  <tr>
+    <td>{{ company.company_id }}</td>
+    <td>{{ company.display_name }}</td>
+    <td>{{ company.nse_symbol }}</td>
+    <td>{{ company.status }}</td>
+    <td><a href="/admin/companies/{{ company.company_id }}">View</a></td>
+  </tr>
+  {% endfor %}
+{% else %}
+  <tr>
+    <td colspan="5">{% include "partials/empty_state.html" %}</td>
+  </tr>
+{% endif %}

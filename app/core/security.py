@@ -110,8 +110,11 @@ def clear_auth_cookie(response: Response, settings: Settings) -> None:
     )
 
 
-def issue_csrf_token(response: Response, settings: Settings) -> str:
-    token = secrets.token_urlsafe(32)
+def generate_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def set_csrf_cookie(response: Response, token: str, settings: Settings) -> None:
     response.set_cookie(
         key=settings.session.csrf_cookie_name,
         value=token,
@@ -120,6 +123,11 @@ def issue_csrf_token(response: Response, settings: Settings) -> str:
         samesite=settings.session.cookie_same_site,
         max_age=settings.session.access_token_expire_minutes * 60,
     )
+
+
+def issue_csrf_token(response: Response, settings: Settings) -> str:
+    token = generate_csrf_token()
+    set_csrf_cookie(response, token, settings)
     return token
 
 

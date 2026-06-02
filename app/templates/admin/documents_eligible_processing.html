@@ -1,0 +1,41 @@
+{% extends "admin/base.html" %}
+{% block admin_content %}
+<h1>Documents Ready for Processing</h1>
+<p>
+  <a href="/admin/processing/jobs">Processing jobs</a> |
+  <a href="/admin/documents">All documents</a>
+</p>
+<p>Approved documents with uploaded files that are not yet searchable and have no active job.</p>
+{% if documents %}
+<table>
+  <thead>
+    <tr>
+      <th>Company</th>
+      <th>Title</th>
+      <th>Type</th>
+      <th>Parse status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for doc in documents %}
+    <tr>
+      <td>{{ doc.company_id }}</td>
+      <td>{{ doc.title }}</td>
+      <td>{{ doc.document_type }}</td>
+      <td>{{ doc.parse_status }}</td>
+      <td>
+        <a href="/admin/documents/{{ doc.document_id }}/review">Review</a>
+        <form method="post" action="/admin/documents/{{ doc.document_id }}/process" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+          <button type="submit">Request processing</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No documents are eligible for processing right now.</p>
+{% endif %}
+{% endblock %}
